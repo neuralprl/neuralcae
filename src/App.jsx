@@ -411,8 +411,8 @@ _________________________________________________________________
                           <div className="grid grid-cols-1 gap-4">
                             {[
                               { key: 'prl', label: '1. Documento CAE PRL NEURAL' },
-                              { key: 'er', label: '2. Evaluación de Riesgos Específica' },
-                              { key: 'sp', label: '3. Acreditación Servicio de Prevención' }
+                              { key: 'er', label: '2. Evaluación de Riesgos a Terceros' },
+                              { key: 'sp', label: '3. Modalidad preventiva (en caso de SPA, subir el concierto con el mismo)' }
                             ].map(item => {
                               const docUrl = comp.companyDocs?.[item.key];
                               const isUploaded = !!docUrl;
