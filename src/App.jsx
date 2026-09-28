@@ -23,7 +23,7 @@ import {
 import * as XLSX from 'xlsx';
 
 const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxNaUJqxU9M_cik1AqlSVQw7lfizQziZo3qbNggh1z6ydmemTe-jLLlpxYx4nuO19U/exec";
-
+                           
 const INITIAL_USERS = [
   { id: '1', email: 'neuralprl', code: 'Neuralprl@', name: 'Superadministrador', role: 'superadmin', assignedCentres: ['ALL'], company: 'Neural PRL' },
   { id: '2', email: 'director.madrid@neural.es', code: 'Pass1234@', name: 'Carlos (Director Madrid)', role: 'corporativo', assignedCentres: ['c1'], company: 'Neural SRL' },
@@ -308,6 +308,7 @@ export default function App() {
       });
 
       const result = await response.json();
+      console.log(text);
       const savedUrl = result.signatureUrl || signatureDataUrl;
 
       // Actualizar estado local
