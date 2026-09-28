@@ -17,10 +17,6 @@ import {
 
 const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxNaUJqxU9M_cik1AqlSVQw7lfizQziZo3qbNggh1z6ydmemTe-jLLlpxYx4nuO19U/exec";
 
-const INITIAL_USERS = [
-  { email: 'neuralprl', code: 'Neuralprl@', name: 'Superadministrador', role: 'superadmin' }
-];
-
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [loginEmail, setLoginEmail] = useState('');
@@ -32,18 +28,16 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('cae');
   const [selectedCaeCompanyId, setSelectedCaeCompanyId] = useState(null);
 
-  // Sincronizar empresas, credenciales y documentos desde Google Sheets
   const syncWithGoogleSheets = async () => {
     setSyncLoading(true);
     try {
       const response = await fetch(GOOGLE_SCRIPT_URL);
       const remoteData = await response.json();
-
       if (Array.isArray(remoteData)) {
         setCaeRecords(remoteData);
       }
     } catch (error) {
-      console.error("Error sincronizando con Google Sheets:", error);
+      console.error("Error sincronizando:", error);
     } finally {
       setSyncLoading(false);
     }
@@ -57,18 +51,18 @@ export default function App() {
     e.preventDefault();
     setLoginError('');
 
-    // 1. Comprobar si es Superadmin
-    const admin = INITIAL_USERS.find(
-      u => u.email.toLowerCase() === loginEmail.trim().toLowerCase() && u.code === loginCode.trim()
-    );
-
-    if (admin) {
-      setCurrentUser({ ...admin, name: 'Superadministrador', role: 'superadmin' });
+    // SUPERADMIN: usuario "a", contraseña "z"
+    if (loginEmail.trim().toLowerCase() === 'a' && loginCode.trim() === 'z') {
+      setCurrentUser({
+        email: 'a',
+        name: 'Superadministrador',
+        role: 'superadmin'
+      });
       setActiveTab('cae');
       return;
     }
 
-    // 2. Comprobar si es una empresa contratista registrada en Google Sheets
+    // LOGIN EMPRESA EXTERNA (Correo y password de la hoja)
     const empresaMatch = caeRecords.find(
       r => r.userEmail.toLowerCase() === loginEmail.trim().toLowerCase() && r.password === loginCode.trim()
     );
@@ -144,7 +138,7 @@ export default function App() {
           return r;
         }));
 
-        alert('¡Documento guardado con éxito en su carpeta de Google Drive!');
+        alert('¡Documento subido y guardado en la carpeta de Drive de la empresa con éxito!');
       } catch (err) {
         console.error("Error al subir archivo:", err);
         alert("Error al guardar el documento.");
@@ -164,17 +158,17 @@ export default function App() {
               <ShieldCheck className="w-8 h-8" />
             </div>
             <h1 className="text-2xl font-bold text-slate-800">Plataforma PRL & CAE</h1>
-            <p className="text-sm text-slate-500">Acceso a Contratas y Sincronización Cloud</p>
+            <p className="text-sm text-slate-500">Acceso a Contratas</p>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-600 uppercase mb-1">Correo Electrónico (Usuario)</label>
+              <label className="block text-xs font-semibold text-slate-600 uppercase mb-1">Usuario / Email</label>
               <input 
                 type="text" 
                 required
                 className="w-full px-4 py-2 border rounded-lg text-sm"
-                placeholder="ejemplo@contrata.com"
+                placeholder="a (Superadmin) o tu correo"
                 value={loginEmail}
                 onChange={(e) => setLoginEmail(e.target.value)}
               />
@@ -186,7 +180,7 @@ export default function App() {
                 type="password" 
                 required
                 className="w-full px-4 py-2 border rounded-lg text-sm"
-                placeholder="••••••••"
+                placeholder="z (Superadmin) o tu contraseña"
                 value={loginCode}
                 onChange={(e) => setLoginCode(e.target.value)}
               />
@@ -227,7 +221,7 @@ export default function App() {
           <div className="flex items-center space-x-4">
             <div className="text-right hidden sm:block">
               <p className="text-sm font-medium">{currentUser.name}</p>
-              <span className="text-[10px] px-2 py-0.5 bg-blue-900 text-blue-200 rounded font-semibold uppercase">
+              <span className="text-[10px] px-2 py-0.5 bg-amber-600 text-white rounded font-semibold uppercase">
                 {currentUser.role}
               </span>
             </div>
@@ -256,14 +250,14 @@ export default function App() {
         <main className="flex-1">
           {activeTab === 'cae' && (
             <div className="space-y-6">
-              {currentUser.role !== 'externo' && !selectedCaeCompanyId ? (
+              {currentUser.role === 'superadmin' && !selectedCaeCompanyId ? (
                 <div className="space-y-6">
                   <div className="bg-amber-600 text-white p-6 rounded-xl flex items-center justify-between">
                     <div>
                       <h2 className="text-xl font-bold flex items-center gap-2">
-                        <HardHat className="w-6 h-6" /> Módulo CAE - Empresas Contratistas
+                        <HardHat className="w-6 h-6" /> Panel Superadmin (Gestión de Contratas)
                       </h2>
-                      <p className="text-xs text-amber-100 mt-1">Sincronizado con la pestaña "Contratas" de Google Sheets y carpetas Drive.</p>
+                      <p className="text-xs text-amber-100 mt-1">Selecciona una empresa para ver o subir su documentación en su carpeta de Drive.</p>
                     </div>
                     <button 
                       onClick={syncWithGoogleSheets}
@@ -284,7 +278,7 @@ export default function App() {
                       >
                         <div>
                           <h3 className="text-base font-bold text-slate-800">{record.companyName}</h3>
-                          <p className="text-xs text-slate-400">{record.userEmail} • <span className="font-mono text-slate-600">Password: {record.password}</span></p>
+                          <p className="text-xs text-slate-400">Usuario: {record.userEmail} • <span className="font-mono text-slate-600">Pass: {record.password}</span></p>
                         </div>
                         <ChevronRight className="w-5 h-5 text-slate-400" />
                       </div>
@@ -293,9 +287,9 @@ export default function App() {
                 </div>
               ) : (
                 <div className="space-y-6">
-                  {currentUser.role !== 'externo' && (
+                  {currentUser.role === 'superadmin' && (
                     <button onClick={() => setSelectedCaeCompanyId(null)} className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 bg-white px-3 py-2 rounded-lg border">
-                      <ArrowLeft className="w-4 h-4" /> Volver a Empresas
+                      <ArrowLeft className="w-4 h-4" /> Volver al Listado de Empresas
                     </button>
                   )}
 
@@ -310,14 +304,12 @@ export default function App() {
                             <h2 className="text-xl font-bold text-slate-800">{comp.companyName}</h2>
                             <p className="text-xs text-slate-500">{comp.userEmail}</p>
                           </div>
-                          {currentUser.role === 'externo' && (
-                            <button 
-                              onClick={handleDownloadTemplate}
-                              className="px-4 py-2 bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 rounded-lg text-xs font-bold flex items-center gap-2 shadow-sm transition"
-                            >
-                              <Download className="w-4 h-4" /> Descargar Plantilla Certificado PRL
-                            </button>
-                          )}
+                          <button 
+                            onClick={handleDownloadTemplate}
+                            className="px-4 py-2 bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 rounded-lg text-xs font-bold flex items-center gap-2 shadow-sm transition"
+                          >
+                            <Download className="w-4 h-4" /> Descargar Plantilla Certificado PRL
+                          </button>
                         </div>
 
                         <div className="space-y-4">
@@ -327,7 +319,7 @@ export default function App() {
 
                           <div className="grid grid-cols-1 gap-4">
                             {[
-                              { key: 'prl', label: '1. Certificado / Plan de Prevención (PRL)' },
+                              { key: 'prl', label: '1. Documento CAE PRL NEURAL' },
                               { key: 'er', label: '2. Evaluación de Riesgos Específica' },
                               { key: 'sp', label: '3. Acreditación Servicio de Prevención' }
                             ].map(item => {
@@ -342,7 +334,7 @@ export default function App() {
                                       {isUploaded && <span className="px-2 py-0.5 bg-emerald-600 text-white text-[10px] font-bold rounded-full flex items-center gap-1"><CheckCircle2 className="w-3 h-3"/> Subido</span>}
                                     </p>
                                     <p className="text-xs text-slate-400">
-                                      {isUploaded ? 'Documento guardado en carpeta de Google Drive' : 'Pendiente de subida'}
+                                      {isUploaded ? 'Documento guardado en la carpeta de Google Drive' : 'Pendiente de subida'}
                                     </p>
                                   </div>
 
@@ -353,17 +345,15 @@ export default function App() {
                                       </a>
                                     )}
 
-                                    {currentUser.role === 'externo' && (
-                                      <label className="cursor-pointer px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-lg shadow-sm flex items-center gap-1.5 transition">
-                                        <Upload className="w-4 h-4" /> {isUploaded ? 'Actualizar Archivo' : 'Subir Archivo'}
-                                        <input 
-                                          type="file" 
-                                          accept=".pdf,.png,.jpg,.jpeg,.txt" 
-                                          className="hidden" 
-                                          onChange={e => handleFileUpload(comp.companyId, item.key, e.target.files[0])}
-                                        />
-                                      </label>
-                                    )}
+                                    <label className="cursor-pointer px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-lg shadow-sm flex items-center gap-1.5 transition">
+                                      <Upload className="w-4 h-4" /> {isUploaded ? 'Actualizar Archivo' : 'Subir Archivo'}
+                                      <input 
+                                        type="file" 
+                                        accept=".pdf,.png,.jpg,.jpeg,.txt" 
+                                        className="hidden" 
+                                        onChange={e => handleFileUpload(comp.companyId, item.key, e.target.files[0])}
+                                      />
+                                    </label>
                                   </div>
                                 </div>
                               );
