@@ -57,9 +57,36 @@ export default function App() {
     setLoginError('');
 
     // SUPERADMIN: usuario "a", contraseña "z"
-    if (loginEmail.trim().toLowerCase() === 'a' && loginCode.trim() === 'z') {
+    if (loginEmail.trim().toLowerCase() === 'neuralprl' && loginCode.trim() === 'Neuralprl@') {
       setCurrentUser({
-        email: 'a',
+        email: 'neuralprl',
+        name: 'Superadministrador',
+        role: 'superadmin'
+      });
+      setActiveTab('cae');
+      return;
+    }
+    if (loginEmail.trim().toLowerCase() === 'Neuralprl' && loginCode.trim() === 'Neuralprl@') {
+      setCurrentUser({
+        email: 'Neuralprl',
+        name: 'Superadministrador',
+        role: 'superadmin'
+      });
+      setActiveTab('cae');
+      return;
+    }
+    if (loginEmail.trim().toLowerCase() === 'Julio' && loginCode.trim() === 'Julio@') {
+      setCurrentUser({
+        email: 'Julio',
+        name: 'Superadministrador',
+        role: 'superadmin'
+      });
+      setActiveTab('cae');
+      return;
+    }
+     if (loginEmail.trim().toLowerCase() === 'Mariel' && loginCode.trim() === 'Mariel@') {
+      setCurrentUser({
+        email: 'Mariel',
         name: 'Superadministrador',
         role: 'superadmin'
       });
@@ -67,6 +94,8 @@ export default function App() {
       return;
     }
 
+
+    
     // LOGIN EMPRESA EXTERNA
     const empresaMatch = caeRecords.find(
       r => r.userEmail.toLowerCase() === loginEmail.trim().toLowerCase() && r.password === loginCode.trim()
