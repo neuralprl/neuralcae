@@ -56,37 +56,21 @@ export default function App() {
     e.preventDefault();
     setLoginError('');
 
-    // SUPERADMIN: usuario "a", contraseña "z"
-    if (loginEmail.trim().toLowerCase() === 'neuralprl' && loginCode.trim() === 'Neuralprl@') {
+    // LISTA DE SUPERADMINISTRADORES
+    const superAdmins = [
+      { user: 'Neuralprl', pass: 'Neuralprl@' },
+      { user: 'neuralprl', pass: 'Neuralprl@' },
+      { user: 'Julio', pass: 'Julio@' },
+      { user: 'Mariel', pass: 'Mariel@' }
+    ];
+
+    const matchedAdmin = superAdmins.find(
+      sa => sa.user === loginEmail.trim() && sa.pass === loginCode.trim()
+    );
+
+    if (matchedAdmin) {
       setCurrentUser({
-        email: 'neuralprl',
-        name: 'Superadministrador',
-        role: 'superadmin'
-      });
-      setActiveTab('cae');
-      return;
-    }
-    if (loginEmail.trim().toLowerCase() === 'Neuralprl' && loginCode.trim() === 'Neuralprl@') {
-      setCurrentUser({
-        email: 'Neuralprl',
-        name: 'Superadministrador',
-        role: 'superadmin'
-      });
-      setActiveTab('cae');
-      return;
-    }
-    if (loginEmail.trim().toLowerCase() === 'Julio' && loginCode.trim() === 'Julio@') {
-      setCurrentUser({
-        email: 'Julio',
-        name: 'Superadministrador',
-        role: 'superadmin'
-      });
-      setActiveTab('cae');
-      return;
-    }
-     if (loginEmail.trim().toLowerCase() === 'Mariel' && loginCode.trim() === 'Mariel@') {
-      setCurrentUser({
-        email: 'Mariel',
+        email: matchedAdmin.user,
         name: 'Superadministrador',
         role: 'superadmin'
       });
@@ -94,8 +78,6 @@ export default function App() {
       return;
     }
 
-
-    
     // LOGIN EMPRESA EXTERNA
     const empresaMatch = caeRecords.find(
       r => r.userEmail.toLowerCase() === loginEmail.trim().toLowerCase() && r.password === loginCode.trim()
@@ -264,7 +246,7 @@ _________________________________________________________________
                 type="text" 
                 required
                 className="w-full px-4 py-2 border rounded-lg text-sm"
-                placeholder="a (Superadmin) o tu correo"
+                placeholder="Introduce tu usuario o correo"
                 value={loginEmail}
                 onChange={(e) => setLoginEmail(e.target.value)}
               />
@@ -276,7 +258,7 @@ _________________________________________________________________
                 type="password" 
                 required
                 className="w-full px-4 py-2 border rounded-lg text-sm"
-                placeholder="z (Superadmin) o tu contraseña"
+                placeholder="Introduce tu contraseña"
                 value={loginCode}
                 onChange={(e) => setLoginCode(e.target.value)}
               />
@@ -440,7 +422,7 @@ _________________________________________________________________
                           <div className="grid grid-cols-1 gap-4">
                             {[
                               { key: 'prl', label: '1. Documento CAE PRL NEURAL' },
-                              { key: 'er', label: '2. Evaluación de Riesgos a Terceros' },
+                              { key: 'er', label: '2. Evaluación de Riesgos a terceros' },
                               { key: 'sp', label: '3. Modalidad preventiva (en caso de SPA, subir el concierto con el mismo)' }
                             ].map(item => {
                               const docUrl = comp.companyDocs?.[item.key];
