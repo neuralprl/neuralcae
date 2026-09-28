@@ -1,8 +1,7 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Building2, 
   FileText, 
-  Users, 
   AlertTriangle, 
   ExternalLink, 
   LogOut, 
@@ -18,36 +17,8 @@ import {
 
 const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxNaUJqxU9M_cik1AqlSVQw7lfizQziZo3qbNggh1z6ydmemTe-jLLlpxYx4nuO19U/exec";
 
-// Datos Iniciales
 const INITIAL_USERS = [
-  { id: '1', email: 'neuralprl', code: 'Neuralprl@', name: 'Superadministrador', role: 'superadmin', company: 'Neural PRL' },
-  { id: '2', email: 'director.madrid@neural.es', code: 'Pass1234@', name: 'Carlos (Director Madrid)', role: 'corporativo', company: 'Neural SRL' },
-  { id: '3', email: 'prevencion@contratasvalencia.com', code: 'Externa123@', name: 'Mantenimientos Levante SL', role: 'externo', company: 'Mantenimientos Levante SL' }
-];
-
-const INITIAL_GENERAL_DOCS = [
-  { id: 'gd1', title: 'Procedimiento General de Evacuación v2', category: 'Procedimientos', link: 'https://sharepoint.com/doc1', date: '2026-01-15' },
-  { id: 'gd2', title: 'Protocolo de Actuación Accidentes Laborales', category: 'Protocolos', link: 'https://sharepoint.com/doc2', date: '2026-02-01' },
-];
-
-const INITIAL_CENTRES = [
-  { id: 'c1', name: 'Centro Neural Madrid - Castellana', zone: 'Madrid Norte', docs: { evaluacion_riesgos: [{ name: 'Eval_Madrid.pdf', link: '#' }] } },
-  { id: 'c2', name: 'Centro Neural Valencia - Mestalla', zone: 'Comunidad Valenciana', docs: { evaluacion_riesgos: [{ name: 'Eval_Valencia.pdf', link: '#' }] } }
-];
-
-const INITIAL_CAE_RECORDS = [
-  {
-    id: 'cae_1',
-    companyName: 'Mantenimientos Levante SL',
-    userEmail: 'prevencion@contratasvalencia.com',
-    companyDocs: { prl: '', er: '', sp: '' }
-  },
-  {
-    id: 'cae_2',
-    companyName: 'Construcciones e Instalaciones Norte SA',
-    userEmail: 'obras@nortesa.com',
-    companyDocs: { prl: '', er: '', sp: '' }
-  }
+  { email: 'neuralprl', code: 'Neuralprl@', name: 'Superadministrador', role: 'superadmin' }
 ];
 
 export default function App() {
@@ -56,38 +27,20 @@ export default function App() {
   const [loginCode, setLoginCode] = useState('');
   const [loginError, setLoginError] = useState('');
 
-  const [users] = useState(INITIAL_USERS);
-  const [centres] = useState(INITIAL_CENTRES);
-  const [generalDocs] = useState(INITIAL_GENERAL_DOCS);
-  const [caeRecords, setCaeRecords] = useState(INITIAL_CAE_RECORDS);
+  const [caeRecords, setCaeRecords] = useState([]);
   const [syncLoading, setSyncLoading] = useState(false);
-
-  const [activeTab, setActiveTab] = useState('general');
-  const [selectedCentreId, setSelectedCentreId] = useState(null);
+  const [activeTab, setActiveTab] = useState('cae');
   const [selectedCaeCompanyId, setSelectedCaeCompanyId] = useState(null);
 
-  // Sincronizar datos con Google Sheets
+  // Sincronizar empresas, credenciales y documentos desde Google Sheets
   const syncWithGoogleSheets = async () => {
     setSyncLoading(true);
     try {
       const response = await fetch(GOOGLE_SCRIPT_URL);
       const remoteData = await response.json();
 
-      if (Array.isArray(remoteData) && remoteData.length > 0) {
-        setCaeRecords(prev => prev.map(company => {
-          const remoteComp = remoteData.find(r => r.companyId === company.id || r.companyName === company.companyName);
-          if (remoteComp) {
-            return {
-              ...company,
-              companyDocs: {
-                prl: remoteComp.companyDocs.prl || '',
-                er: remoteComp.companyDocs.er || '',
-                sp: remoteComp.companyDocs.sp || ''
-              }
-            };
-          }
-          return company;
-        }));
+      if (Array.isArray(remoteData)) {
+        setCaeRecords(remoteData);
       }
     } catch (error) {
       console.error("Error sincronizando con Google Sheets:", error);
@@ -100,25 +53,35 @@ export default function App() {
     syncWithGoogleSheets();
   }, []);
 
-  // Si es usuario externo, forzarle directamente a su panel CAE
   const handleLogin = (e) => {
     e.preventDefault();
     setLoginError('');
-    const user = users.find(
-      u => u.email.trim().toLowerCase() === loginEmail.trim().toLowerCase() && 
-           u.code.trim() === loginCode.trim()
+
+    // 1. Comprobar si es Superadmin
+    const admin = INITIAL_USERS.find(
+      u => u.email.toLowerCase() === loginEmail.trim().toLowerCase() && u.code === loginCode.trim()
     );
 
-    if (user) {
-      setCurrentUser(user);
-      if (user.role === 'externo') {
-        setActiveTab('cae');
-        // Seleccionar automáticamente su propia empresa
-        const myComp = caeRecords.find(r => r.userEmail.toLowerCase() === user.email.toLowerCase());
-        if (myComp) setSelectedCaeCompanyId(myComp.id);
-      } else {
-        setActiveTab('general');
-      }
+    if (admin) {
+      setCurrentUser({ ...admin, name: 'Superadministrador', role: 'superadmin' });
+      setActiveTab('cae');
+      return;
+    }
+
+    // 2. Comprobar si es una empresa contratista registrada en Google Sheets
+    const empresaMatch = caeRecords.find(
+      r => r.userEmail.toLowerCase() === loginEmail.trim().toLowerCase() && r.password === loginCode.trim()
+    );
+
+    if (empresaMatch) {
+      setCurrentUser({
+        email: empresaMatch.userEmail,
+        name: empresaMatch.companyName,
+        role: 'externo',
+        companyId: empresaMatch.companyId
+      });
+      setActiveTab('cae');
+      setSelectedCaeCompanyId(empresaMatch.companyId);
     } else {
       setLoginError('Usuario o contraseña incorrectos.');
     }
@@ -131,7 +94,6 @@ export default function App() {
     setSelectedCaeCompanyId(null);
   };
 
-  // Descargar plantilla oficial de certificado PRL
   const handleDownloadTemplate = () => {
     const templateContent = "CERTIFICADO DE CUMPLIMIENTO DE PRL Y ENTREGA DE EPIs\n\nYo, en representación de la empresa contratista, certifico que nuestros trabajadores cumplen con la normativa de Prevención de Riesgos Laborales.\n\nFirma y Sello:";
     const blob = new Blob([templateContent], { type: 'text/plain;charset=utf-8' });
@@ -144,14 +106,13 @@ export default function App() {
     document.body.removeChild(link);
   };
 
-  // Subir documento de la empresa y guardarlo en Google Sheets / Drive de forma persistente
   const handleFileUpload = (companyId, docType, file) => {
     if (!file) return;
 
     const reader = new FileReader();
     reader.onload = async (evt) => {
       const base64Data = evt.target.result;
-      const currentComp = caeRecords.find(r => r.id === companyId);
+      const currentComp = caeRecords.find(r => r.companyId === companyId);
 
       setSyncLoading(true);
       try {
@@ -160,9 +121,9 @@ export default function App() {
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify({
             companyId: companyId,
-            companyName: currentComp?.companyName || '',
+            companyName: currentComp?.companyName || 'Empresa',
             userEmail: currentComp?.userEmail || '',
-            docType: docType, // 'prl', 'er', 'sp'
+            docType: docType,
             fileData: base64Data
           })
         });
@@ -170,9 +131,8 @@ export default function App() {
         const result = await response.json();
         const fileUrl = result.fileUrl || base64Data;
 
-        // Actualizar estado local
         setCaeRecords(prev => prev.map(r => {
-          if (r.id === companyId) {
+          if (r.companyId === companyId) {
             return {
               ...r,
               companyDocs: {
@@ -184,10 +144,10 @@ export default function App() {
           return r;
         }));
 
-        alert('¡Documento subido y guardado con éxito en la nube!');
+        alert('¡Documento guardado con éxito en su carpeta de Google Drive!');
       } catch (err) {
         console.error("Error al subir archivo:", err);
-        alert("Error al guardar el documento. Comprueba la conexión.");
+        alert("Error al guardar el documento.");
       } finally {
         setSyncLoading(false);
       }
@@ -204,17 +164,17 @@ export default function App() {
               <ShieldCheck className="w-8 h-8" />
             </div>
             <h1 className="text-2xl font-bold text-slate-800">Plataforma PRL & CAE</h1>
-            <p className="text-sm text-slate-500">Gestión Documental y Coordinación Empresarial</p>
+            <p className="text-sm text-slate-500">Acceso a Contratas y Sincronización Cloud</p>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-600 uppercase mb-1">Correo / Usuario</label>
+              <label className="block text-xs font-semibold text-slate-600 uppercase mb-1">Correo Electrónico (Usuario)</label>
               <input 
                 type="text" 
                 required
                 className="w-full px-4 py-2 border rounded-lg text-sm"
-                placeholder="neuralprl o prevencion@..."
+                placeholder="ejemplo@contrata.com"
                 value={loginEmail}
                 onChange={(e) => setLoginEmail(e.target.value)}
               />
@@ -249,7 +209,7 @@ export default function App() {
   }
 
   const myCompanyRecord = currentUser.role === 'externo' 
-    ? caeRecords.find(r => r.userEmail.toLowerCase() === currentUser.email.toLowerCase())
+    ? caeRecords.find(r => r.companyId === currentUser.companyId)
     : null;
 
   return (
@@ -260,7 +220,7 @@ export default function App() {
             <ShieldCheck className="w-7 h-7 text-blue-400" />
             <div>
               <h1 className="font-bold text-lg leading-tight">Neural PRL</h1>
-              <span className="text-xs text-slate-400">Coordinación Empresarial</span>
+              <span className="text-xs text-slate-400">Coordinación de Actividades Empresariales</span>
             </div>
           </div>
 
@@ -279,94 +239,21 @@ export default function App() {
       </header>
 
       <div className="max-w-7xl mx-auto px-4 py-6 flex-1 w-full flex flex-col md:flex-row gap-6">
-        {/* Sidebar */}
         <aside className="w-full md:w-64 bg-white rounded-xl border p-4 h-fit space-y-2">
-          {currentUser.role !== 'externo' && (
-            <button 
-              onClick={() => setActiveTab('general')}
-              className={`w-full py-2.5 px-3 rounded-lg font-medium text-sm flex items-center space-x-2 ${activeTab === 'general' ? 'bg-blue-50 text-blue-600 font-bold' : 'text-slate-600 hover:bg-slate-50'}`}
-            >
-              <FileText className="w-4 h-4 text-blue-500" />
-              <span>Doc. General PRL</span>
-            </button>
-          )}
-
-          {currentUser.role !== 'externo' && (
-            <button 
-              onClick={() => { setActiveTab('centres'); setSelectedCentreId(null); }}
-              className={`w-full py-2.5 px-3 rounded-lg font-medium text-sm flex items-center space-x-2 ${activeTab === 'centres' ? 'bg-blue-600 text-white font-bold' : 'text-slate-700 hover:bg-slate-50'}`}
-            >
-              <Building2 className="w-4 h-4" />
-              <span>Centros de Trabajo</span>
-            </button>
-          )}
-
           <button 
             onClick={() => { 
               setActiveTab('cae'); 
-              if (currentUser.role === 'externo' && myCompanyRecord) setSelectedCaeCompanyId(myCompanyRecord.id);
+              if (currentUser.role === 'externo' && myCompanyRecord) setSelectedCaeCompanyId(myCompanyRecord.companyId);
               else setSelectedCaeCompanyId(null);
             }}
-            className={`w-full py-2.5 px-3 rounded-lg font-medium text-sm flex items-center space-x-2 ${activeTab === 'cae' ? 'bg-amber-500 text-white font-bold' : 'text-slate-700 hover:bg-slate-50'}`}
+            className="w-full py-2.5 px-3 rounded-lg font-medium text-sm flex items-center space-x-2 bg-amber-500 text-white font-bold"
           >
             <HardHat className="w-4 h-4" />
             <span>Módulo CAE - Empresas</span>
           </button>
         </aside>
 
-        {/* Contenido Principal */}
         <main className="flex-1">
-          {/* TAB: PROCEDIMIENTOS GENERALES */}
-          {activeTab === 'general' && currentUser.role !== 'externo' && (
-            <div className="bg-white p-6 rounded-xl border shadow-sm space-y-4">
-              <h2 className="text-lg font-bold text-slate-800">Procedimientos Generales PRL</h2>
-              <div className="space-y-2">
-                {generalDocs.map(doc => (
-                  <div key={doc.id} className="p-3 bg-slate-50 rounded-lg border flex justify-between items-center text-xs">
-                    <span className="font-bold text-slate-800">{doc.title}</span>
-                    <a href={doc.link} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline flex items-center gap-1 font-bold">
-                      Ver <ExternalLink className="w-3 h-3" />
-                    </a>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* TAB: CENTROS DE TRABAJO */}
-          {activeTab === 'centres' && currentUser.role !== 'externo' && (
-            <div className="space-y-6">
-              {!selectedCentreId ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {centres.map(centre => (
-                    <div 
-                      key={centre.id}
-                      onClick={() => setSelectedCentreId(centre.id)}
-                      className="bg-white p-5 rounded-xl border hover:border-blue-400 transition cursor-pointer flex justify-between items-center"
-                    >
-                      <div>
-                        <h3 className="font-bold text-slate-800 text-base">{centre.name}</h3>
-                        <p className="text-xs text-slate-400">{centre.zone}</p>
-                      </div>
-                      <ChevronRight className="w-5 h-5 text-slate-400" />
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="bg-white p-6 rounded-xl border space-y-4">
-                  <button onClick={() => setSelectedCentreId(null)} className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 bg-slate-100 px-3 py-1.5 rounded-lg">
-                    <ArrowLeft className="w-4 h-4" /> Volver
-                  </button>
-                  <h2 className="text-xl font-bold text-slate-800">
-                    {centres.find(c => c.id === selectedCentreId)?.name}
-                  </h2>
-                  <p className="text-xs text-slate-500">Evaluaciones de riesgo y documentación específica del centro.</p>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* TAB: MÓDULO CAE EMPRESAS */}
           {activeTab === 'cae' && (
             <div className="space-y-6">
               {currentUser.role !== 'externo' && !selectedCaeCompanyId ? (
@@ -376,7 +263,7 @@ export default function App() {
                       <h2 className="text-xl font-bold flex items-center gap-2">
                         <HardHat className="w-6 h-6" /> Módulo CAE - Empresas Contratistas
                       </h2>
-                      <p className="text-xs text-amber-100 mt-1">Sincronización persistente con Google Sheets.</p>
+                      <p className="text-xs text-amber-100 mt-1">Sincronizado con la pestaña "Contratas" de Google Sheets y carpetas Drive.</p>
                     </div>
                     <button 
                       onClick={syncWithGoogleSheets}
@@ -391,13 +278,13 @@ export default function App() {
                   <div className="grid grid-cols-1 gap-4">
                     {caeRecords.map(record => (
                       <div 
-                        key={record.id}
-                        onClick={() => setSelectedCaeCompanyId(record.id)}
+                        key={record.companyId}
+                        onClick={() => setSelectedCaeCompanyId(record.companyId)}
                         className="bg-white p-5 rounded-xl border hover:border-amber-400 transition cursor-pointer flex items-center justify-between"
                       >
                         <div>
                           <h3 className="text-base font-bold text-slate-800">{record.companyName}</h3>
-                          <p className="text-xs text-slate-400">{record.userEmail}</p>
+                          <p className="text-xs text-slate-400">{record.userEmail} • <span className="font-mono text-slate-600">Password: {record.password}</span></p>
                         </div>
                         <ChevronRight className="w-5 h-5 text-slate-400" />
                       </div>
@@ -405,7 +292,6 @@ export default function App() {
                   </div>
                 </div>
               ) : (
-                // Vista de Detalle de la Empresa (para Superadmin/Corporativo o la propia Empresa Externa)
                 <div className="space-y-6">
                   {currentUser.role !== 'externo' && (
                     <button onClick={() => setSelectedCaeCompanyId(null)} className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 bg-white px-3 py-2 rounded-lg border">
@@ -414,8 +300,8 @@ export default function App() {
                   )}
 
                   {(() => {
-                    const comp = caeRecords.find(r => r.id === (currentUser.role === 'externo' ? myCompanyRecord?.id : selectedCaeCompanyId));
-                    if (!comp) return <p>Cargando empresa...</p>;
+                    const comp = caeRecords.find(r => r.companyId === (currentUser.role === 'externo' ? myCompanyRecord?.companyId : selectedCaeCompanyId));
+                    if (!comp) return <p>Cargando información de la empresa...</p>;
 
                     return (
                       <div className="bg-white p-6 rounded-xl border shadow-sm space-y-6">
@@ -456,7 +342,7 @@ export default function App() {
                                       {isUploaded && <span className="px-2 py-0.5 bg-emerald-600 text-white text-[10px] font-bold rounded-full flex items-center gap-1"><CheckCircle2 className="w-3 h-3"/> Subido</span>}
                                     </p>
                                     <p className="text-xs text-slate-400">
-                                      {isUploaded ? 'Documento sincronizado en Google Drive' : 'Pendiente de subida'}
+                                      {isUploaded ? 'Documento guardado en carpeta de Google Drive' : 'Pendiente de subida'}
                                     </p>
                                   </div>
 
@@ -474,7 +360,7 @@ export default function App() {
                                           type="file" 
                                           accept=".pdf,.png,.jpg,.jpeg,.txt" 
                                           className="hidden" 
-                                          onChange={e => handleFileUpload(comp.id, item.key, e.target.files[0])}
+                                          onChange={e => handleFileUpload(comp.companyId, item.key, e.target.files[0])}
                                         />
                                       </label>
                                     )}
@@ -496,4 +382,3 @@ export default function App() {
     </div>
   );
 }
-
