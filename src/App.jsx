@@ -12,7 +12,8 @@ import {
   Upload, 
   Download, 
   CheckCircle2, 
-  RefreshCw 
+  RefreshCw,
+  FileDown
 } from 'lucide-react';
 
 const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxNaUJqxU9M_cik1AqlSVQw7lfizQziZo3qbNggh1z6ydmemTe-jLLlpxYx4nuO19U/exec";
@@ -24,6 +25,7 @@ export default function App() {
   const [loginError, setLoginError] = useState('');
 
   const [caeRecords, setCaeRecords] = useState([]);
+  const [globalFiles, setGlobalFiles] = useState({ inf: '', med: '' });
   const [syncLoading, setSyncLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('cae');
   const [selectedCaeCompanyId, setSelectedCaeCompanyId] = useState(null);
@@ -33,7 +35,10 @@ export default function App() {
     try {
       const response = await fetch(GOOGLE_SCRIPT_URL);
       const remoteData = await response.json();
-      if (Array.isArray(remoteData)) {
+      if (remoteData && Array.isArray(remoteData.empresas)) {
+        setCaeRecords(remoteData.empresas);
+        setGlobalFiles(remoteData.globalFiles || { inf: '', med: '' });
+      } else if (Array.isArray(remoteData)) {
         setCaeRecords(remoteData);
       }
     } catch (error) {
@@ -62,7 +67,7 @@ export default function App() {
       return;
     }
 
-    // LOGIN EMPRESA EXTERNA (Correo y password de la hoja)
+    // LOGIN EMPRESA EXTERNA
     const empresaMatch = caeRecords.find(
       r => r.userEmail.toLowerCase() === loginEmail.trim().toLowerCase() && r.password === loginCode.trim()
     );
@@ -89,12 +94,68 @@ export default function App() {
   };
 
   const handleDownloadTemplate = () => {
-    const templateContent = "CERTIFICADO DE CUMPLIMIENTO DE PRL Y ENTREGA DE EPIs\n\nYo, en representación de la empresa contratista, certifico que nuestros trabajadores cumplen con la normativa de Prevención de Riesgos Laborales.\n\nFirma y Sello:";
+    const templateContent = `================================================================================
+          CERTIFICADO DE CUMPLIMIENTO DE PREVENCIÓN DE RIESGOS LABORALES 
+              Y COORDINACIÓN DE ACTIVIDADES EMPRESARIALES (CAE)
+                             GRUPO NEURAL
+================================================================================
+
+DATOS DE LA EMPRESA CONTRATISTA / SUBCONTRATISTA:
+- Razón Social: [Nombre de la Empresa Contratista]
+- NIF / CIF: [Insertar CIF]
+- Domicilio Social: [Dirección Completa]
+- Actividad / Objeto del Contrato: [Descripción del servicio o trabajo a realizar]
+
+DATOS DEL REPRESENTANTE LEGAL / DESIGNADO:
+- Nombre y Apellidos: [Nombre del Representante]
+- Cargo: [Cargo en la empresa]
+- Teléfono / Correo Electrónico de contacto: [Contacto]
+
+--------------------------------------------------------------------------------
+
+DECLARACIÓN EMPRESARIAL DE CUMPLIMIENTO NORMATIVO Y GARANTÍA PRL
+
+En cumplimiento de lo establecido en el artículo 24 de la Ley 31/1995, de 8 de noviembre, de Prevención de Riesgos Laborales (LPRL), así como en el Real Decreto 171/2004, de 30 de enero, por el que se desarrolla el artículo 24 de la citada Ley en materia de coordinación de actividades empresariales, el/la representante legal de la empresa contratista arriba indicada, 
+
+DECLARA EXPRESAMENTE Y BAJO SU ÚNICA RESPONSABILIDAD:
+
+PRIMERO.- RECEPCIÓN, ASIMILACIÓN E INFORMACIÓN DE RIESGOS A TERCEROS
+Que la empresa contratista ha recibido, leído, analizado y comprendido íntegramente la documentación e información técnica facilitada por el GRUPO NEURAL relativa a:
+1. Los riesgos generales y específicos inherentes a los centros de trabajo del GRUPO NEURAL donde va a desarrollar su actividad.
+2. Las medidas de prevención, protección y pautas de actuación específicas que deben aplicarse para la mitigación de dichos riesgos.
+Asimismo, la empresa contratista asume la obligación indelegable de trasladar, informar e instruir de manera efectiva, comprensible y previa al inicio de los trabajos a todo su personal (trabajadores propios, autónomos o subcontratados) sobre los citados riesgos y las directrices de seguridad aplicables.
+
+SEGUNDO.- GARANTÍA DE CUMPLIMIENTO EN MATERIA DE PREVENCIÓN DE RIESGOS LABORALES
+Que todos los trabajadores y trabajadoras adscritos a la ejecución de los servicios en las instalaciones del GRUPO NEURAL cumplen rigurosamente con los siguientes requisitos legales y técnicos antes de su acceso:
+1. Formación e Información: Disponen de la formación teórica y práctica adecuada y suficiemente informada a su puesto de trabajo, conforme al art. 19 de la LPRL, acorde con los riesgos a los que estarán expuestos.
+2. Equipos de Protección Individual (EPIs): Se les ha hecho entrega efectiva de los Equipos de Protección Individual reglamentarios, homologados bajo la normativa CE, adecuados para los riesgos de la actividad, habiendo recibido instrucción sobre su correcto uso, conservación y obligatoriedad de empleo, en cumplimiento del Real Decreto 773/1997.
+3. Vigilancia de la Salud: Cuentan con el ofrecimiento (si tiene carácter voluntario) o reconocimiento médico con su certificado de aptitud médica en vigor (si tiene carácter obligatorio), específico para los riesgos del puesto de trabajo, emitido por el Servicio de Prevención correspondiente, siendo aptos para el desempeño de las tareas asignadas (art. 22 de la LPRL).
+4. Cualificación y Habilitación Profesional: Poseen las titulaciones, acreditaciones, carnés profesionales o autorizaciones especiales legalmente exigidas para el manejo de equipos de trabajo, maquinaria peligrosa o la ejecución de operaciones especiales (trabajos en altura, eléctricos, etc.).
+
+TERCERO.- MEDIDAS DE EMERGENCIA
+Que la empresa contratista ha instruido formalmente a su plantilla en relación con las medidas de emergencia establecidas por el GRUPO NEURAL para terceros. 
+
+CUARTO.- CUMPLIMIENTO DE LA LEGISLACIÓN LABORAL Y DE SUBCONTRATACIÓN
+Que la empresa contratista cumple estrictamente con las obligaciones en materia de legislación laboral, Seguridad Social, así como con las limitaciones y requisitos legales en materia de subcontratación previstos en la Ley 32/2006, reguladora de la subcontratación en el Sector de la Construcción (si aplica), y el Estatuto de los Trabajadores.
+
+QUINTO.- COMPROMISO DE NOTIFICACIÓN DE INCIDENTES Y ACCIDENTES
+Que se compromete a notificar de forma inmediata al responsable de PRL del GRUPO NEURAL cualquier incidente, accidente de trabajo, situación de riesgo grave e inminente o anomalía detectada durante la ejecución de los trabajos.
+
+Y para que así conste, surta los plenos efectos jurídicos y preventivos en el marco de la Coordinación de Actividades Empresariales, y se presente ante el GRUPO NEURAL, firma y sella el presente documento el representante legal de la empresa.
+
+
+En ___________________________________, a _____ de ______________________ de 202___
+
+
+
+_________________________________________________________________
+(Firma digital o manuscrita del representante legal)`;
+
     const blob = new Blob([templateContent], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = 'Plantilla_Certificado_PRL.txt';
+    link.download = 'Certificado_Cumplimiento_PRL_Neural.txt';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -305,17 +366,41 @@ export default function App() {
 
                     return (
                       <div className="bg-white p-6 rounded-xl border shadow-sm space-y-6">
-                        <div className="border-b pb-4 flex justify-between items-center">
+                        <div className="border-b pb-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                           <div>
                             <h2 className="text-xl font-bold text-slate-800">{comp.companyName}</h2>
                             <p className="text-xs text-slate-500">{comp.userEmail}</p>
                           </div>
-                          <button 
-                            onClick={handleDownloadTemplate}
-                            className="px-4 py-2 bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 rounded-lg text-xs font-bold flex items-center gap-2 shadow-sm transition"
-                          >
-                            <Download className="w-4 h-4" /> Descargar Plantilla Certificado PRL
-                          </button>
+                          
+                          {/* BOTONES DE DESCARGA */}
+                          <div className="flex flex-wrap items-center gap-2">
+                            <button 
+                              onClick={handleDownloadTemplate}
+                              className="px-3 py-2 bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm transition"
+                            >
+                              <Download className="w-4 h-4" /> Plantilla Certificado PRL
+                            </button>
+
+                            <a 
+                              href={globalFiles.inf || "#"} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              onClick={(e) => { if(!globalFiles.inf) { e.preventDefault(); alert("El archivo de Información de Riesgos aún no está disponible en la raíz de la carpeta CONTRATAS."); } }}
+                              className="px-3 py-2 bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm transition"
+                            >
+                              <FileDown className="w-4 h-4" /> Info Riesgos a Terceros
+                            </a>
+
+                            <a 
+                              href={globalFiles.med || "#"} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              onClick={(e) => { if(!globalFiles.med) { e.preventDefault(); alert("El archivo de Medidas de Emergencia aún no está disponible en la raíz de la carpeta CONTRATAS."); } }}
+                              className="px-3 py-2 bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm transition"
+                            >
+                              <FileDown className="w-4 h-4" /> Medidas de Emergencia
+                            </a>
+                          </div>
                         </div>
 
                         <div className="space-y-4">
