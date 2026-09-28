@@ -123,22 +123,28 @@ export default function App() {
         });
 
         const result = await response.json();
-        const fileUrl = result.fileUrl || base64Data;
+        
+        if (result.status === "success" && result.fileUrl) {
+          const realDriveUrl = result.fileUrl;
 
-        setCaeRecords(prev => prev.map(r => {
-          if (r.companyId === companyId) {
-            return {
-              ...r,
-              companyDocs: {
-                ...r.companyDocs,
-                [docType]: fileUrl
-              }
-            };
-          }
-          return r;
-        }));
+          setCaeRecords(prev => prev.map(r => {
+            if (r.companyId === companyId) {
+              return {
+                ...r,
+                companyDocs: {
+                  ...r.companyDocs,
+                  [docType]: realDriveUrl
+                }
+              };
+            }
+            return r;
+          }));
 
-        alert('¡Documento subido y guardado en la carpeta de Drive de la empresa con éxito!');
+          alert('¡Documento subido y guardado en la carpeta de Google Drive de la empresa con éxito!');
+        } else {
+          alert('Error del servidor al guardar: ' + (result.message || 'Desconocido'));
+        }
+
       } catch (err) {
         console.error("Error al subir archivo:", err);
         alert("Error al guardar el documento.");
