@@ -10,7 +10,6 @@ import {
   ExternalLink, 
   LogOut, 
   Plus, 
-  FolderOpen, 
   ShieldCheck, 
   FileSpreadsheet, 
   Trash2, 
@@ -20,7 +19,6 @@ import {
   Check,
   CheckSquare,
   Square,
-  Filter,
   ArrowLeft,
   ChevronRight
 } from 'lucide-react';
@@ -73,7 +71,7 @@ const INITIAL_CAE_RECORDS = [
     userEmail: 'prevencion@contratasvalencia.com',
     docsRead: false,
     docsSent: false,
-    status: 'pendiente', // 'pendiente' | 'completado'
+    status: 'pendiente',
     updatedAt: '2026-02-20',
     workers: [
       { id: 'w1', name: 'Juan Pérez Gómez', dni: '12345678A', approved: false },
@@ -121,15 +119,21 @@ export default function App() {
   // Estado Global
   const [users, setUsers] = useState(INITIAL_USERS);
   const [centres, setCentres] = useState(INITIAL_CENTRES);
-  const [generalDocs] = useState(INITIAL_GENERAL_DOCS);
+  const [generalDocs, setGeneralDocs] = useState(INITIAL_GENERAL_DOCS);
   const [caeRecords, setCaeRecords] = useState(INITIAL_CAE_RECORDS);
 
   // Navegación y Filtros
-  const [activeTab, setActiveTab] = useState('centres');
-  const [selectedCentre, setSelectedCentre] = useState(null);
+  const [activeTab, setActiveTab] = useState('cae');
+  const [selectedCentreId, setSelectedCentreId] = useState(null);
   const [selectedCaeCompanyId, setSelectedCaeCompanyId] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [caeSearchTerm, setCaeSearchTerm] = useState('');
+
+  // Estado para añadir nuevos procedimientos
+  const [isAddingProcedure, setIsAddingProcedure] = useState(false);
+  const [newProcTitle, setNewProcTitle] = useState('');
+  const [newProcCategory, setNewProcCategory] = useState('Procedimientos');
+  const [newProcLink, setNewProcLink] = useState('');
 
   // Estado para añadir trabajadores
   const [isAddingWorker, setIsAddingWorker] = useState(false);
@@ -155,7 +159,7 @@ export default function App() {
       if (user.role === 'externo') {
         setActiveTab('cae');
       } else {
-        setActiveTab('centres');
+        setActiveTab('cae');
       }
     } else {
       setLoginError('Usuario o contraseña incorrectos.');
@@ -175,18 +179,18 @@ export default function App() {
     return centres.filter(c => c.users.includes(currentUser.email));
   }, [currentUser, centres]);
 
-  const currentSelectedCentre = useMemo(() => {
-    if (!selectedCentre) return null;
-    return centres.find(c => c.id === selectedCentre.id) || selectedCentre;
-  }, [centres, selectedCentre]);
+  const selectedCentreRecord = useMemo(() => {
+    if (!selectedCentreId) return null;
+    return centres.find(c => c.id === selectedCentreId);
+  }, [centres, selectedCentreId]);
 
-  // Registro CAE seleccionado actualmente
+  // Registro CAE seleccionado
   const selectedCaeRecord = useMemo(() => {
     if (!selectedCaeCompanyId) return null;
     return caeRecords.find(r => r.id === selectedCaeCompanyId);
   }, [caeRecords, selectedCaeCompanyId]);
 
-  // Registros CAE filtrados
+  // Búsqueda en CAE
   const filteredCaeRecords = useMemo(() => {
     if (!caeSearchTerm.trim()) return caeRecords;
     return caeRecords.filter(r => 
@@ -194,6 +198,34 @@ export default function App() {
       r.userEmail.toLowerCase().includes(caeSearchTerm.toLowerCase())
     );
   }, [caeRecords, caeSearchTerm]);
+
+  // Búsqueda en Centros
+  const filteredCentres = useMemo(() => {
+    if (!searchTerm.trim()) return accessibleCentres;
+    return accessibleCentres.filter(c => 
+      c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      c.zone.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [accessibleCentres, searchTerm]);
+
+  // Añadir un nuevo procedimiento a Procedimientos Generales
+  const handleAddProcedure = (e) => {
+    e.preventDefault();
+    if (!newProcTitle.trim() || !newProcLink.trim()) return;
+
+    const newProc = {
+      id: `gd_${Date.now()}`,
+      title: newProcTitle.trim(),
+      category: newProcCategory,
+      link: newProcLink.trim(),
+      date: new Date().toISOString().split('T')[0]
+    };
+
+    setGeneralDocs(prev => [newProc, ...prev]);
+    setNewProcTitle('');
+    setNewProcLink('');
+    setIsAddingProcedure(false);
+  };
 
   // --- ACCIONES DE CAE Y TRABAJADORES ---
 
@@ -277,7 +309,7 @@ export default function App() {
     }));
   };
 
-  // Excel Upload
+  // Carga Masiva Excel
   const handleFileUploadCentres = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -520,51 +552,63 @@ export default function App() {
 
       <div className="max-w-7xl mx-auto px-4 py-6 flex-1 w-full flex flex-col md:flex-row gap-6">
         
-        {/* NAVEGACIÓN LATERAL */}
+        {/* NAVEGACIÓN LATERAL REORGANIZADA */}
         <aside className="w-full md:w-64 bg-white rounded-xl border border-slate-200 shadow-sm p-4 shrink-0 h-fit space-y-6">
-          <div className="space-y-1">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2">Navegación</span>
+          
+          {/* SECCIÓN 1: PROCEDIMIENTOS GENERALES */}
+          <div className="space-y-2">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2 block">
+              PROCEDIMIENTOS GENERALES
+            </span>
             
-            <button 
-              onClick={() => { setActiveTab('centres'); setSelectedCentre(null); }}
-              className={`w-full py-2.5 px-3 rounded-lg font-medium text-sm flex items-center space-x-2.5 transition ${activeTab === 'centres' ? 'bg-blue-50 text-blue-600 font-semibold' : 'text-slate-600 hover:bg-slate-50'}`}
-            >
-              <Building2 className="w-4 h-4" />
-              <span>Centros de Trabajo</span>
-            </button>
-
             <button 
               onClick={() => setActiveTab('general')}
               className={`w-full py-2.5 px-3 rounded-lg font-medium text-sm flex items-center space-x-2.5 transition ${activeTab === 'general' ? 'bg-blue-50 text-blue-600 font-semibold' : 'text-slate-600 hover:bg-slate-50'}`}
             >
-              <FolderOpen className="w-4 h-4" />
+              <FileText className="w-4 h-4 text-blue-500" />
               <span>Doc. General PRL</span>
             </button>
           </div>
 
+          {/* SECCIÓN 2: MÓDULOS ESPECIALES (A MEDIA PÁGINA) */}
           <div className="pt-4 border-t border-slate-100 space-y-2">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2">Módulo Especial</span>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2 block">
+              MÓDULOS ESPECIALES
+            </span>
             
+            {/* MÓDULO CAE - EMPRESAS */}
             <button 
               onClick={() => {
                 setActiveTab('cae');
                 setSelectedCaeCompanyId(null);
               }}
-              className={`w-full py-3 px-3 rounded-lg font-medium text-sm flex items-center justify-between transition ${activeTab === 'cae' ? 'bg-amber-500 text-white font-bold shadow-md' : 'bg-slate-800 text-white hover:bg-slate-700'}`}
+              className={`w-full py-2.5 px-3 rounded-lg font-medium text-sm flex items-center justify-between transition ${activeTab === 'cae' ? 'bg-amber-500 text-white font-bold shadow-md' : 'text-slate-700 hover:bg-slate-50'}`}
             >
               <div className="flex items-center space-x-2">
-                <HardHat className="w-5 h-5 text-amber-300" />
-                <span>Módulo CAE</span>
+                <HardHat className={`w-4 h-4 ${activeTab === 'cae' ? 'text-white' : 'text-amber-500'}`} />
+                <span>Módulo CAE- Empresas</span>
               </div>
-              <span className="text-[10px] bg-slate-900/40 px-1.5 py-0.5 rounded text-white font-mono">
-                SA
-              </span>
+            </button>
+
+            {/* MÓDULO CENTROS DE TRABAJO */}
+            <button 
+              onClick={() => {
+                setActiveTab('centres');
+                setSelectedCentreId(null);
+              }}
+              className={`w-full py-2.5 px-3 rounded-lg font-medium text-sm flex items-center justify-between transition ${activeTab === 'centres' ? 'bg-blue-600 text-white font-bold shadow-md' : 'text-slate-700 hover:bg-slate-50'}`}
+            >
+              <div className="flex items-center space-x-2">
+                <Building2 className={`w-4 h-4 ${activeTab === 'centres' ? 'text-white' : 'text-blue-500'}`} />
+                <span>Módulo Centros de Trabajo</span>
+              </div>
             </button>
           </div>
 
+          {/* SECCIÓN 3: ADMINISTRACIÓN SA */}
           {currentUser.role === 'superadmin' && (
             <div className="pt-4 border-t border-slate-100 space-y-1">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2">Administración SA</span>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2 block">Administración SA</span>
               
               <button 
                 onClick={() => setActiveTab('excel')}
@@ -588,171 +632,313 @@ export default function App() {
         {/* CONTENIDO PRINCIPAL */}
         <main className="flex-1">
           
-          {/* TAB: CENTROS DE TRABAJO */}
-          {activeTab === 'centres' && !currentSelectedCentre && (
+          {/* TAB: PROCEDIMIENTOS GENERALES */}
+          {activeTab === 'general' && (
             <div className="space-y-6">
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div className="flex justify-between items-center">
                 <div>
-                  <h2 className="text-xl font-bold text-slate-800">Centros Asignados</h2>
-                  <p className="text-sm text-slate-500">Selecciona un centro para ver sus documentos de Prevención.</p>
+                  <h2 className="text-xl font-bold text-slate-800">Procedimientos Generales de PRL</h2>
+                  <p className="text-sm text-slate-500">Consulta y gestión en vertical de todos los procedimientos y normas generales.</p>
                 </div>
 
-                <div className="relative w-full sm:w-64">
-                  <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
-                  <input 
-                    type="text"
-                    placeholder="Buscar centro..."
-                    className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
-                </div>
+                {currentUser.role === 'superadmin' && (
+                  <button 
+                    onClick={() => setIsAddingProcedure(!isAddingProcedure)}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg text-xs font-bold transition shadow-sm"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Añadir procedimiento</span>
+                  </button>
+                )}
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {accessibleCentres
-                  .filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase()))
-                  .map((centre) => {
-                    const categoriesKeys = ['evaluacion_riesgos', 'informacion_riesgos', 'medidas_emergencia'];
-                    const pendingCount = categoriesKeys.filter(k => {
-                      const list = Array.isArray(centre.docs[k]) ? centre.docs[k] : [];
-                      return list.length === 0;
-                    }).length;
+              {/* FORMULARIO PARA AÑADIR PROCEDIMIENTO */}
+              {isAddingProcedure && (
+                <form onSubmit={handleAddProcedure} className="p-4 bg-white border border-blue-200 rounded-xl space-y-3 shadow-sm">
+                  <span className="text-xs font-bold text-slate-800 block">Nuevo Procedimiento General</span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <input 
+                      type="text" 
+                      required
+                      placeholder="Título del procedimiento"
+                      className="px-3 py-2 border text-xs rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={newProcTitle}
+                      onChange={(e) => setNewProcTitle(e.target.value)}
+                    />
+                    <select 
+                      className="px-3 py-2 border text-xs rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={newProcCategory}
+                      onChange={(e) => setNewProcCategory(e.target.value)}
+                    >
+                      <option value="Procedimientos">Procedimientos</option>
+                      <option value="Protocolos">Protocolos</option>
+                      <option value="Plantillas">Plantillas</option>
+                      <option value="Instrucciones Técnicas">Instrucciones Técnicas</option>
+                    </select>
+                  </div>
+                  <input 
+                    type="url" 
+                    required
+                    placeholder="URL de SharePoint / Archivo (https://...)"
+                    className="w-full px-3 py-2 border text-xs rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={newProcLink}
+                    onChange={(e) => setNewProcLink(e.target.value)}
+                  />
+                  <div className="flex justify-end gap-2 pt-1">
+                    <button 
+                      type="button"
+                      onClick={() => setIsAddingProcedure(false)}
+                      className="px-3 py-1.5 text-xs text-slate-500 hover:bg-slate-100 rounded-lg font-medium"
+                    >
+                      Cancelar
+                    </button>
+                    <button 
+                      type="submit"
+                      className="px-4 py-1.5 text-xs bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 shadow"
+                    >
+                      Guardar
+                    </button>
+                  </div>
+                </form>
+              )}
 
-                    return (
-                      <div 
-                        key={centre.id}
-                        onClick={() => setSelectedCentre(centre)}
-                        className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition cursor-pointer flex flex-col justify-between"
-                      >
-                        <div className="space-y-3">
-                          <div className="flex justify-between items-start">
-                            <span className="text-xs font-semibold px-2.5 py-1 bg-slate-100 text-slate-600 rounded">
-                              {centre.zone}
-                            </span>
-                            {pendingCount === 0 ? (
-                              <span className="text-xs font-semibold px-2.5 py-1 bg-emerald-100 text-emerald-700 rounded-full flex items-center gap-1">
-                                <CheckCircle2 className="w-3 h-3" /> Completo
-                              </span>
-                            ) : (
-                              <span className="text-xs font-semibold px-2.5 py-1 bg-amber-100 text-amber-700 rounded-full flex items-center gap-1">
-                                <AlertTriangle className="w-3 h-3" /> {pendingCount} Categ. sin docs
-                              </span>
-                            )}
-                          </div>
-
-                          <h3 className="text-lg font-bold text-slate-800">
-                            {centre.name}
-                          </h3>
-                        </div>
-
-                        <div className="mt-6 pt-4 border-t border-slate-100 flex justify-between items-center text-sm font-medium text-blue-600">
-                          <span>Ver documentación</span>
-                          <ExternalLink className="w-4 h-4" />
+              {/* LISTA VERTICAL DE PROCEDIMIENTOS */}
+              <div className="flex flex-col space-y-3">
+                {generalDocs.map((doc) => (
+                  <div 
+                    key={doc.id}
+                    className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between hover:shadow-md transition"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <div className="p-2.5 bg-blue-50 text-blue-600 rounded-lg">
+                        <FileText className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-bold text-slate-800">{doc.title}</h3>
+                        <div className="flex items-center space-x-2 mt-0.5">
+                          <span className="px-2 py-0.5 bg-slate-100 text-slate-600 text-[10px] font-semibold rounded">
+                            {doc.category}
+                          </span>
+                          <span className="text-[11px] text-slate-400">Publicado: {doc.date}</span>
                         </div>
                       </div>
-                    );
-                  })}
+                    </div>
+
+                    <a 
+                      href={doc.link} 
+                      target="_blank" 
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-blue-600 rounded-lg text-xs font-semibold transition"
+                    >
+                      <span>Abrir</span>
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                  </div>
+                ))}
               </div>
             </div>
           )}
 
-          {/* DETALLE CENTRO SELECCIONADO */}
-          {activeTab === 'centres' && currentSelectedCentre && (
+          {/* TAB: MÓDULO CENTROS DE TRABAJO */}
+          {activeTab === 'centres' && (
             <div className="space-y-6">
-              <button 
-                onClick={() => setSelectedCentre(null)}
-                className="text-sm font-medium text-slate-500 hover:text-slate-800 flex items-center gap-1"
-              >
-                ← Volver a centros
-              </button>
-
-              <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-2">
-                <span className="text-xs font-semibold px-2.5 py-1 bg-slate-100 text-slate-600 rounded">
-                  {currentSelectedCentre.zone}
-                </span>
-                <h2 className="text-2xl font-bold text-slate-800">{currentSelectedCentre.name}</h2>
-                <p className="text-xs text-slate-400">
-                  Usuarios con acceso: {currentSelectedCentre.users.join(', ')}
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {[
-                  { key: 'evaluacion_riesgos', label: 'Evaluación de Riesgos' },
-                  { key: 'informacion_riesgos', label: 'Información de Riesgos' },
-                  { key: 'medidas_emergencia', label: 'Medidas de Emergencia' }
-                ].map(({ key, label }) => {
-                  const docList = Array.isArray(currentSelectedCentre.docs[key]) ? currentSelectedCentre.docs[key] : [];
-                  const isPresent = docList.length > 0;
-
-                  return (
-                    <div key={key} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between space-y-4">
-                      <div>
-                        <div className="flex justify-between items-center mb-3">
-                          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Categoría</span>
-                          {isPresent ? (
-                            <span className="text-xs font-bold px-2.5 py-1 bg-emerald-100 text-emerald-700 rounded-full flex items-center gap-1">
-                              <CheckCircle2 className="w-3 h-3" /> {docList.length} Archivo(s)
-                            </span>
-                          ) : (
-                            <span className="text-xs font-bold px-2.5 py-1 bg-rose-100 text-rose-700 rounded-full flex items-center gap-1">
-                              <XCircle className="w-3 h-3" /> Pendiente
-                            </span>
-                          )}
-                        </div>
-
-                        <h3 className="text-base font-bold text-slate-800 mb-3">{label}</h3>
-
-                        {isPresent ? (
-                          <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                            {docList.map(doc => (
-                              <a 
-                                key={doc.id}
-                                href={doc.link} 
-                                target="_blank" 
-                                rel="noreferrer"
-                                className="p-2.5 bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-200 rounded-lg flex items-center justify-between text-xs transition group"
-                              >
-                                <div className="flex items-center space-x-2 truncate pr-2">
-                                  <FileText className="w-4 h-4 text-blue-600 shrink-0" />
-                                  <span className="font-medium text-slate-700 group-hover:text-blue-700 truncate">{doc.name}</span>
-                                </div>
-                                <ExternalLink className="w-3.5 h-3.5 text-slate-400 group-hover:text-blue-600 shrink-0" />
-                              </a>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="text-xs text-rose-500 italic bg-rose-50 p-3 rounded border border-rose-100">
-                            Sin documentos vinculados en esta categoría.
-                          </p>
-                        )}
+              
+              {/* VISTA 1: LISTA VERTICAL DE CENTROS */}
+              {!selectedCentreRecord ? (
+                <div className="space-y-6">
+                  <div className="bg-slate-800 text-white p-6 rounded-xl shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div>
+                      <div className="flex items-center space-x-2">
+                        <Building2 className="w-6 h-6 text-blue-400" />
+                        <h2 className="text-xl font-bold">Módulo Centros de Trabajo</h2>
                       </div>
-
-                      <div className="space-y-2 pt-2 border-t border-slate-100">
-                        {currentUser.role === 'superadmin' && (
-                          <button 
-                            onClick={() => {
-                              setEditDocModal({
-                                open: true,
-                                centreId: currentSelectedCentre.id,
-                                categoryKey: key,
-                                categoryLabel: label
-                              });
-                              setNewLinkUrl('');
-                              setNewLinkName('');
-                            }}
-                            className="w-full py-2 px-3 bg-slate-100 text-slate-700 font-medium text-xs rounded-lg hover:bg-slate-200 transition flex items-center justify-center gap-1.5"
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                            <span>Gestionar / Añadir Enlaces</span>
-                          </button>
-                        )}
-                      </div>
+                      <p className="text-xs text-slate-300 mt-1">
+                        Selecciona un centro de trabajo para inspeccionar o editar su documentación de Prevención.
+                      </p>
                     </div>
-                  );
-                })}
-              </div>
+                  </div>
+
+                  {/* BÚSQUEDA Y FILTRO */}
+                  <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex justify-between items-center gap-4">
+                    <div className="relative w-full sm:w-80">
+                      <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
+                      <input 
+                        type="text"
+                        placeholder="Buscar centro o zona..."
+                        className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                      />
+                    </div>
+                    <span className="text-xs text-slate-500 font-medium hidden sm:inline">
+                      Total: {filteredCentres.length} centro(s)
+                    </span>
+                  </div>
+
+                  {/* LISTADO VERTICAL DE CENTROS */}
+                  <div className="flex flex-col space-y-3">
+                    {filteredCentres.length === 0 ? (
+                      <div className="bg-white p-8 rounded-xl border border-slate-200 text-center text-slate-400 text-sm italic">
+                        No se han encontrado centros de trabajo.
+                      </div>
+                    ) : (
+                      filteredCentres.map((centre) => {
+                        const categoriesKeys = ['evaluacion_riesgos', 'informacion_riesgos', 'medidas_emergencia'];
+                        const pendingCount = categoriesKeys.filter(k => {
+                          const list = Array.isArray(centre.docs[k]) ? centre.docs[k] : [];
+                          return list.length === 0;
+                        }).length;
+
+                        return (
+                          <div 
+                            key={centre.id}
+                            onClick={() => setSelectedCentreId(centre.id)}
+                            className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-blue-300 transition cursor-pointer flex items-center justify-between group"
+                          >
+                            <div className="space-y-1">
+                              <div className="flex items-center space-x-3">
+                                <h3 className="text-base font-bold text-slate-800 group-hover:text-blue-600 transition">
+                                  {centre.name}
+                                </h3>
+                                <span className="text-xs font-semibold px-2.5 py-0.5 bg-slate-100 text-slate-600 rounded">
+                                  {centre.zone}
+                                </span>
+                              </div>
+                              <p className="text-xs text-slate-400">
+                                Usuarios con acceso: {centre.users.join(', ')}
+                              </p>
+                              <div className="pt-1">
+                                {pendingCount === 0 ? (
+                                  <span className="text-[11px] font-bold text-emerald-600 inline-flex items-center gap-1">
+                                    <CheckCircle2 className="w-3.5 h-3.5" /> Toda la documentación cargada (OK)
+                                  </span>
+                                ) : (
+                                  <span className="text-[11px] font-bold text-amber-600 inline-flex items-center gap-1">
+                                    <AlertTriangle className="w-3.5 h-3.5" /> {pendingCount} Categoría(s) pendientes de documentación
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="flex items-center space-x-2 text-slate-400 group-hover:text-blue-600">
+                              <span className="text-xs font-medium hidden sm:inline">Ver / Editar Centro</span>
+                              <ChevronRight className="w-5 h-5" />
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              ) : (
+                /* VISTA 2: DESPLEGADO Y EDICIÓN DEL CENTRO SELECCIONADO */
+                <div className="space-y-6">
+                  {/* BOTÓN PARA VOLVER ATRÁS */}
+                  <div className="flex justify-between items-center">
+                    <button 
+                      onClick={() => setSelectedCentreId(null)}
+                      className="inline-flex items-center space-x-2 px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-lg text-xs font-bold transition shadow-sm"
+                    >
+                      <ArrowLeft className="w-4 h-4" />
+                      <span>← Volver al listado de centros</span>
+                    </button>
+
+                    <span className="text-xs text-slate-400 font-mono">
+                      ID Centro: {selectedCentreRecord.id}
+                    </span>
+                  </div>
+
+                  {/* CABECERA DEL CENTRO */}
+                  <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-2">
+                    <span className="text-xs font-semibold px-2.5 py-1 bg-slate-100 text-slate-600 rounded">
+                      {selectedCentreRecord.zone}
+                    </span>
+                    <h2 className="text-2xl font-bold text-slate-800">{selectedCentreRecord.name}</h2>
+                    <p className="text-xs text-slate-400">
+                      Usuarios con acceso: {selectedCentreRecord.users.join(', ')}
+                    </p>
+                  </div>
+
+                  {/* CATEGORÍAS DOCUMENTALES */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {[
+                      { key: 'evaluacion_riesgos', label: 'Evaluación de Riesgos' },
+                      { key: 'informacion_riesgos', label: 'Información de Riesgos' },
+                      { key: 'medidas_emergencia', label: 'Medidas de Emergencia' }
+                    ].map(({ key, label }) => {
+                      const docList = Array.isArray(selectedCentreRecord.docs[key]) ? selectedCentreRecord.docs[key] : [];
+                      const isPresent = docList.length > 0;
+
+                      return (
+                        <div key={key} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between space-y-4">
+                          <div>
+                            <div className="flex justify-between items-center mb-3">
+                              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Categoría</span>
+                              {isPresent ? (
+                                <span className="text-xs font-bold px-2.5 py-1 bg-emerald-100 text-emerald-700 rounded-full flex items-center gap-1">
+                                  <CheckCircle2 className="w-3 h-3" /> {docList.length} Archivo(s)
+                                </span>
+                              ) : (
+                                <span className="text-xs font-bold px-2.5 py-1 bg-rose-100 text-rose-700 rounded-full flex items-center gap-1">
+                                  <XCircle className="w-3 h-3" /> Pendiente
+                                </span>
+                              )}
+                            </div>
+
+                            <h3 className="text-base font-bold text-slate-800 mb-3">{label}</h3>
+
+                            {isPresent ? (
+                              <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                                {docList.map(doc => (
+                                  <a 
+                                    key={doc.id}
+                                    href={doc.link} 
+                                    target="_blank" 
+                                    rel="noreferrer"
+                                    className="p-2.5 bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-200 rounded-lg flex items-center justify-between text-xs transition group"
+                                  >
+                                    <div className="flex items-center space-x-2 truncate pr-2">
+                                      <FileText className="w-4 h-4 text-blue-600 shrink-0" />
+                                      <span className="font-medium text-slate-700 group-hover:text-blue-700 truncate">{doc.name}</span>
+                                    </div>
+                                    <ExternalLink className="w-3.5 h-3.5 text-slate-400 group-hover:text-blue-600 shrink-0" />
+                                  </a>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-xs text-rose-500 italic bg-rose-50 p-3 rounded border border-rose-100">
+                                Sin documentos vinculados en esta categoría.
+                              </p>
+                            )}
+                          </div>
+
+                          <div className="space-y-2 pt-2 border-t border-slate-100">
+                            {currentUser.role === 'superadmin' && (
+                              <button 
+                                onClick={() => {
+                                  setEditDocModal({
+                                    open: true,
+                                    centreId: selectedCentreRecord.id,
+                                    categoryKey: key,
+                                    categoryLabel: label
+                                  });
+                                  setNewLinkUrl('');
+                                  setNewLinkName('');
+                                }}
+                                className="w-full py-2 px-3 bg-slate-100 text-slate-700 font-medium text-xs rounded-lg hover:bg-slate-200 transition flex items-center justify-center gap-1.5"
+                              >
+                                <Plus className="w-3.5 h-3.5" />
+                                <span>Gestionar / Añadir Enlaces</span>
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
             </div>
           )}
 
@@ -767,16 +953,12 @@ export default function App() {
                     <div>
                       <div className="flex items-center space-x-2">
                         <HardHat className="w-6 h-6 text-amber-400" />
-                        <h2 className="text-xl font-bold">Coordinación de Actividades Empresariales (CAE)</h2>
+                        <h2 className="text-xl font-bold">Módulo CAE- Empresas</h2>
                       </div>
                       <p className="text-xs text-slate-300 mt-1">
                         Selecciona una empresa para gestionar su situación documental y la validación de trabajadores.
                       </p>
                     </div>
-
-                    <span className="text-xs bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-600 font-mono shrink-0">
-                      Modo: Selección de Empresa
-                    </span>
                   </div>
 
                   {/* BÚSQUEDA Y FILTRO */}
@@ -880,7 +1062,6 @@ export default function App() {
                         <p className="text-xs text-slate-500">{selectedCaeRecord.userEmail}</p>
                       </div>
 
-                      {/* Botón de validación global ROJO / VERDE */}
                       <button 
                         onClick={() => handleToggleApproveCae(selectedCaeRecord.id)}
                         className={`py-2.5 px-4 rounded-lg font-bold text-xs shadow-md transition flex items-center gap-2 text-white ${
@@ -1090,52 +1271,6 @@ export default function App() {
                 </div>
               )}
 
-            </div>
-          )}
-
-          {/* TAB: DOCUMENTACIÓN GENERAL */}
-          {activeTab === 'general' && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-xl font-bold text-slate-800">Documentación General de PRL</h2>
-                <p className="text-sm text-slate-500">Procedimientos, normas y plantillas comunes.</p>
-              </div>
-
-              <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                <table className="w-full text-left text-sm text-slate-600">
-                  <thead className="bg-slate-50 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b">
-                    <tr>
-                      <th className="px-6 py-3">Documento</th>
-                      <th className="px-6 py-3">Categoría</th>
-                      <th className="px-6 py-3">Fecha</th>
-                      <th className="px-6 py-3 text-right">Acceso</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {generalDocs.map((doc) => (
-                      <tr key={doc.id} className="hover:bg-slate-50">
-                        <td className="px-6 py-4 font-medium text-slate-800">{doc.title}</td>
-                        <td className="px-6 py-4">
-                          <span className="px-2 py-1 bg-slate-100 text-slate-600 text-xs rounded">
-                            {doc.category}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-slate-400 text-xs">{doc.date}</td>
-                        <td className="px-6 py-4 text-right">
-                          <a 
-                            href={doc.link} 
-                            target="_blank" 
-                            rel="noreferrer"
-                            className="text-blue-600 hover:text-blue-800 text-xs font-semibold inline-flex items-center gap-1"
-                          >
-                            Ver archivo <ExternalLink className="w-3 h-3" />
-                          </a>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
             </div>
           )}
 
