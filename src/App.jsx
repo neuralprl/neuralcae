@@ -50,7 +50,7 @@ export default function App() {
       }
       
       if (isDeep) {
-        alert("¡Sincronización profunda completada! Se han recorrido las carpetas de Drive y actualizado los estados.");
+        alert("¡Sincronización profunda completada! Se han escaneado las carpetas de Drive y actualizado los estados.");
       }
     } catch (error) {
       console.error("Error sincronizando:", error);
@@ -374,7 +374,7 @@ _________________________________________________________________
                       <h2 className="text-xl font-bold flex items-center gap-2">
                         <HardHat className="w-6 h-6" /> Panel Superadmin (Gestión de Contratas)
                       </h2>
-                      <p className="text-xs text-amber-100 mt-1">Inspección de carpetas en Google Drive y actualización de registros.</p>
+                      <p className="text-xs text-amber-100 mt-1">Escanea carpetas en Google Drive y actualiza automáticamente los estados de documentos.</p>
                     </div>
                     
                     <div className="flex items-center gap-2">
@@ -407,7 +407,7 @@ _________________________________________________________________
                       >
                         <div>
                           <h3 className="text-base font-bold text-slate-800">{record.companyName}</h3>
-                          <p className="text-xs text-slate-400">Usuario: {record.userEmail} • <span className="font-mono text-slate-600">Pass: {record.password}</span> • <span className="text-blue-600">Carpeta: {record.nameDrive || 'Estándar'}</span></p>
+                          <p className="text-xs text-slate-400">Usuario: {record.userEmail} • <span className="font-mono text-slate-600">Pass: {record.password}</span></p>
                         </div>
                         <ChevronRight className="w-5 h-5 text-slate-400" />
                       </div>
