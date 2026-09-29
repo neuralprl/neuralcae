@@ -13,7 +13,8 @@ import {
   Download, 
   CheckCircle2, 
   RefreshCw,
-  FileDown
+  FileDown,
+  RotateCcw
 } from 'lucide-react';
 
 const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxNaUJqxU9M_cik1AqlSVQw7lfizQziZo3qbNggh1z6ydmemTe-jLLlpxYx4nuO19U/exec";
@@ -30,33 +31,43 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('cae');
   const [selectedCaeCompanyId, setSelectedCaeCompanyId] = useState(null);
 
-  const syncWithGoogleSheets = async () => {
+  const syncWithGoogleSheets = async (isDeep = false) => {
     setSyncLoading(true);
     try {
-      const response = await fetch(GOOGLE_SCRIPT_URL);
+      const response = await fetch(GOOGLE_SCRIPT_URL, {
+        method: isDeep ? 'POST' : 'GET',
+        headers: isDeep ? { 'Content-Type': 'text/plain;charset=utf-8' } : undefined,
+        body: isDeep ? JSON.stringify({ action: 'deepSync' }) : undefined
+      });
+
       const remoteData = await response.json();
+      
       if (remoteData && Array.isArray(remoteData.empresas)) {
         setCaeRecords(remoteData.empresas);
         setGlobalFiles(remoteData.globalFiles || { inf: '', med: '' });
       } else if (Array.isArray(remoteData)) {
         setCaeRecords(remoteData);
       }
+      
+      if (isDeep) {
+        alert("¡Sincronización profunda completada! Se han recorrido las carpetas de Drive y actualizado los estados.");
+      }
     } catch (error) {
       console.error("Error sincronizando:", error);
+      alert("Error al sincronizar con el servidor.");
     } finally {
       setSyncLoading(false);
     }
   };
 
   useEffect(() => {
-    syncWithGoogleSheets();
+    syncWithGoogleSheets(false);
   }, []);
 
   const handleLogin = (e) => {
     e.preventDefault();
     setLoginError('');
 
-    // LISTA DE SUPERADMINISTRADORES
     const superAdmins = [
       { user: 'Neuralprl', pass: 'Neuralprl@' },
       { user: 'neuralprl', pass: 'Neuralprl@' },
@@ -78,7 +89,6 @@ export default function App() {
       return;
     }
 
-    // LOGIN EMPRESA EXTERNA
     const empresaMatch = caeRecords.find(
       r => r.userEmail.toLowerCase() === loginEmail.trim().toLowerCase() && r.password === loginCode.trim()
     );
@@ -102,6 +112,35 @@ export default function App() {
     setLoginEmail('');
     setLoginCode('');
     setSelectedCaeCompanyId(null);
+  };
+
+  const handleResetAllDocs = async () => {
+    if (!window.confirm("¿Estás seguro de que deseas RESETEAR LOS DOCUMENTOS DE TODAS LAS EMPRESAS a la vez? Quedarán todas pendientes.")) return;
+
+    setSyncLoading(true);
+    try {
+      const response = await fetch(GOOGLE_SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'resetAll' })
+      });
+      const result = await response.json();
+
+      if (result.status === "success") {
+        setCaeRecords(prev => prev.map(r => ({
+          ...r,
+          companyDocs: { prl: '', er: '', sp: '' }
+        })));
+        alert("¡Todos los documentos han sido reseteados con éxito!");
+      } else {
+        alert("Error al resetear: " + (result.message || 'Desconocido'));
+      }
+    } catch (err) {
+      console.error("Error en reset all:", err);
+      alert("Error de conexión al resetear documentos.");
+    } finally {
+      setSyncLoading(false);
+    }
   };
 
   const handleDownloadTemplate = () => {
@@ -212,7 +251,7 @@ _________________________________________________________________
             return r;
           }));
 
-          alert('¡Documento subido y guardado en la carpeta de Google Drive de la empresa con éxito!');
+          alert('¡Documento subido y guardado en la carpeta de Google Drive con éxito!');
         } else {
           alert('Error del servidor al guardar: ' + (result.message || 'Desconocido'));
         }
@@ -330,21 +369,33 @@ _________________________________________________________________
             <div className="space-y-6">
               {currentUser.role === 'superadmin' && !selectedCaeCompanyId ? (
                 <div className="space-y-6">
-                  <div className="bg-amber-600 text-white p-6 rounded-xl flex items-center justify-between">
+                  <div className="bg-amber-600 text-white p-6 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div>
                       <h2 className="text-xl font-bold flex items-center gap-2">
                         <HardHat className="w-6 h-6" /> Panel Superadmin (Gestión de Contratas)
                       </h2>
-                      <p className="text-xs text-amber-100 mt-1">Selecciona una empresa para ver o subir su documentación en su carpeta de Drive.</p>
+                      <p className="text-xs text-amber-100 mt-1">Inspección de carpetas en Google Drive y actualización de registros.</p>
                     </div>
-                    <button 
-                      onClick={syncWithGoogleSheets}
-                      disabled={syncLoading}
-                      className="px-3 py-2 bg-amber-700 hover:bg-amber-800 text-white text-xs font-bold rounded-lg flex items-center gap-2"
-                    >
-                      <RefreshCw className={`w-4 h-4 ${syncLoading ? 'animate-spin' : ''}`} />
-                      Sincronizar
-                    </button>
+                    
+                    <div className="flex items-center gap-2">
+                      <button 
+                        onClick={handleResetAllDocs}
+                        disabled={syncLoading}
+                        className="px-3 py-2 bg-red-700 hover:bg-red-800 text-white text-xs font-bold rounded-lg flex items-center gap-1.5 shadow"
+                        title="Limpia todos los documentos de golpe"
+                      >
+                        <RotateCcw className="w-4 h-4" /> Resetear Todos
+                      </button>
+
+                      <button 
+                        onClick={() => syncWithGoogleSheets(true)}
+                        disabled={syncLoading}
+                        className="px-3 py-2 bg-amber-700 hover:bg-amber-800 text-white text-xs font-bold rounded-lg flex items-center gap-2 shadow"
+                      >
+                        <RefreshCw className={`w-4 h-4 ${syncLoading ? 'animate-spin' : ''}`} />
+                        Sincronización Profunda
+                      </button>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-1 gap-4">
@@ -356,7 +407,7 @@ _________________________________________________________________
                       >
                         <div>
                           <h3 className="text-base font-bold text-slate-800">{record.companyName}</h3>
-                          <p className="text-xs text-slate-400">Usuario: {record.userEmail} • <span className="font-mono text-slate-600">Pass: {record.password}</span></p>
+                          <p className="text-xs text-slate-400">Usuario: {record.userEmail} • <span className="font-mono text-slate-600">Pass: {record.password}</span> • <span className="text-blue-600">Carpeta: {record.nameDrive || 'Estándar'}</span></p>
                         </div>
                         <ChevronRight className="w-5 h-5 text-slate-400" />
                       </div>
@@ -383,7 +434,6 @@ _________________________________________________________________
                             <p className="text-xs text-slate-500">{comp.userEmail}</p>
                           </div>
                           
-                          {/* BOTONES DE DESCARGA */}
                           <div className="flex flex-wrap items-center gap-2">
                             <button 
                               onClick={handleDownloadTemplate}
@@ -396,7 +446,7 @@ _________________________________________________________________
                               href={globalFiles.inf || "#"} 
                               target="_blank" 
                               rel="noopener noreferrer"
-                              onClick={(e) => { if(!globalFiles.inf) { e.preventDefault(); alert("El archivo de Información de Riesgos aún no está disponible en la raíz de la carpeta CONTRATAS."); } }}
+                              onClick={(e) => { if(!globalFiles.inf) { e.preventDefault(); alert("El archivo de Información de Riesgos aún no está disponible."); } }}
                               className="px-3 py-2 bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm transition"
                             >
                               <FileDown className="w-4 h-4" /> Info Riesgos a Terceros
@@ -406,7 +456,7 @@ _________________________________________________________________
                               href={globalFiles.med || "#"} 
                               target="_blank" 
                               rel="noopener noreferrer"
-                              onClick={(e) => { if(!globalFiles.med) { e.preventDefault(); alert("El archivo de Medidas de Emergencia aún no está disponible en la raíz de la carpeta CONTRATAS."); } }}
+                              onClick={(e) => { if(!globalFiles.med) { e.preventDefault(); alert("El archivo de Medidas de Emergencia aún no está disponible."); } }}
                               className="px-3 py-2 bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm transition"
                             >
                               <FileDown className="w-4 h-4" /> Medidas de Emergencia
@@ -436,7 +486,7 @@ _________________________________________________________________
                                       {isUploaded && <span className="px-2 py-0.5 bg-emerald-600 text-white text-[10px] font-bold rounded-full flex items-center gap-1"><CheckCircle2 className="w-3 h-3"/> Subido</span>}
                                     </p>
                                     <p className="text-xs text-slate-400">
-                                      {isUploaded ? 'Documento guardado en la carpeta de Google Drive' : 'Pendiente de subida'}
+                                      {isUploaded ? 'Documento detectado y guardado en la carpeta de Drive' : 'Pendiente de subida'}
                                     </p>
                                   </div>
 
